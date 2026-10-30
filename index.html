@@ -1,13 +1,23 @@
-<html>
-  <head>
-    <meta charset="UTF-8" />
-              <title> BOOK STORE</title>
-    <meta name="descriphin" content="This is our book store" />
-    <style></style>
-    <script></script>
-    <link rel="stylesheet" href="">
-  </head>
-  <body>
-THIS IS MY STOR ,WELLCOME
-  </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lanternfall – Read Web Novels</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <a class="logo" href="#home">Lanternfall</a>
+  <nav id="nav"><a href="#home" data-v="home">Home</a><a href="#novels" data-v="novels">Novels</a><a href="#bookmarks" data-v="bookmarks">Bookmarks</a></nav>
+  <input id="q" type="search" placeholder="Search series…" autocomplete="off">
+  <button class="ic" id="th" title="Toggle theme">◐</button>
+</header>
+<main id="app"></main>
+<section id="adm"></section>
+<footer id="ft"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="app.js"></script>
+</body>
 </html>
