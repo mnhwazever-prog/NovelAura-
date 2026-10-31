@@ -7,18 +7,18 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const ago=t=>{const h=(Date.now()-new Date(t))/36e5;return h<1?"just now":h<24?Math.floor(h)+"h ago":Math.floor(h/24)+"d ago"};
-let user=null,rows=[],bm=store.get("bm",[]),prog=store.get("prog",{}),pref=store.get("pref",{fs:18});
+let user=null,isAdmin=false,rows=[],bm=store.get("bm",[]),prog=store.get("prog",{}),pref=store.get("pref",{fs:18});
 let S={q:"",st:"",sort:"updated"},A={tab:"stats",edit:null,ch:null,chEdit:null,msg:""};
 const cnt=r=>r.chapters&&r.chapters[0]?r.chapters[0].count:0;
 const cover=r=>`<div class="cv" style="background:linear-gradient(160deg,hsl(${(r.id*47)%360} 55% 42%),hsl(${(r.id*47+50)%360} 60% 22%))">${r.cover_url?`<img src="${esc(r.cover_url)}" alt="" loading="lazy">`:esc(r.title)}</div>`;
 const card=r=>`<a class="card" href="#series-${r.id}">${cover(r)}<div class="ct">${esc(r.title)}<span>${cnt(r)} chapters · ${r.views||0} views</span></div></a>`;
 async function load(){const{data,error}=await sb.from("series").select("*,chapters(count)").order("updated_at",{ascending:false});if(error)throw error;rows=data||[]}
 // ---- visit tracking (skipped for the admin so stats stay clean) ----
-function track(seriesId){if(user)return;let v=store.get("vid",null);if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);store.set("vid",v)}sb.rpc("track_visit",{p_path:location.hash||"#home",p_series:seriesId||null,p_visitor:v}).then(()=>{},()=>{})}
+function track(seriesId){if(isAdmin)return;let v=store.get("vid",null);if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);store.set("vid",v)}sb.rpc("track_visit",{p_path:location.hash||"#home",p_series:seriesId||null,p_visitor:v}).then(()=>{},()=>{})}
 // ---- views ----
 function home(){
   const top=[...rows].sort((a,b)=>b.views-a.views).slice(0,6),done=rows.filter(r=>r.status=="Completed").slice(0,6);
-  if(!rows.length)return `<div class="empty">No series yet.${user?" Use the admin panel below to add one.":""}</div>`;
+  if(!rows.length)return `<div class="empty">No series yet.${isAdmin?" Open your profile (top right) to add one.":""}</div>`;
   const f=rows[0];
   return `<div class="hero">${cover(f)}<div><h1 style="margin:0 0 6px">${esc(f.title)}</h1><div>${(f.genres||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join("")}<span class="tag">${esc(f.status)}</span></div><p style="color:var(--mu)">${esc((f.description||"").slice(0,300))}</p><a class="btn" href="#series-${f.id}">Read now</a></div></div>
   <h2>Latest updates<a href="#novels">View all</a></h2><div class="grid">${rows.slice(0,12).map(card).join("")}</div>
@@ -52,23 +52,38 @@ async function read(id,n){
   return `<div class="rd"><div class="sub"><a href="#series-${id}">${esc(r.title)}</a></div><h1>Chapter ${data.number}</h1><div class="sub">${esc(data.title||"")}</div>${nav}<div class="txt" style="font-size:${pref.fs}px">${body}</div>${nav}</div>`;
 }
 const nf=()=>`<div class="empty">Page not found. <a href="#home" style="color:var(--ac)">Go home</a></div>`;
-function login(){return `<div class="box"><h2 style="margin-top:0">Admin login</h2><form data-f="login"><label>Email</label><input name="email" type="email" required autocomplete="username"><label>Password</label><input name="pw" type="password" required autocomplete="current-password"><p id="lerr" style="color:var(--dg);min-height:1.2em"></p><button class="btn" style="width:100%">Sign in</button></form></div>`}
+const L=(h,t)=>`<a style="color:var(--ac)" href="#${h}">${t}</a>`;
+const AUTH=["login","signup","forgot","recover"];
+function authBox(kind){
+  const t={login:"Sign in",signup:"Create account",forgot:"Reset password",recover:"Set a new password"}[kind];
+  const em=`<label>Email</label><input name="email" type="email" required autocomplete="username">`;
+  const pw=l=>`<label>${l}</label><input name="pw" type="password" required minlength="6" autocomplete="${kind=="login"?"current-password":"new-password"}">`;
+  const f={login:em+pw("Password"),signup:em+pw("Password (6+ characters)"),forgot:em,recover:pw("New password")}[kind];
+  const links=kind=="login"?L("forgot","Forgot password?")+" · "+L("signup","Create account"):kind=="signup"?"Already have an account? "+L("login","Sign in"):L("login","Back to sign in");
+  return `<div class="box"><h2 style="margin-top:0">${t}</h2><form data-f="${kind}">${f}<p id="lerr" style="min-height:1.2em;color:var(--dg)"></p><button class="btn" style="width:100%">${t}</button></form><p style="text-align:center;color:var(--mu);font-size:14px">${links}</p></div>`;
+}
+function profile(){
+  if(!user)return authBox("login");
+  return `<div class="box"><h2 style="margin-top:0">My account</h2><p>${esc(user.email)}</p>${isAdmin?`<p><span class="tag">Admin</span></p>`:""}<p><a class="btn ghost sm" href="#bookmarks">Bookmarks</a> <button class="btn dg sm" id="lo">Sign out</button></p></div>`;
+}
 // ---- router ----
 async function route(){
   const h=location.hash.slice(1)||"home",[v,a,b]=h.split("-"),app=$("#app");
+  if(h.includes("access_token")||h.includes("type=recovery"))return;
   app.innerHTML=`<div class="empty">Loading…</div>`;
   try{
-    if(v!="login")await load();
-    app.innerHTML=v=="home"?(track(),home()):v=="novels"?(track(),novels()):v=="bookmarks"?bookmarks():v=="series"?await series(+a):v=="read"?await read(+a,+b):v=="login"?login():nf();
+    if(!AUTH.includes(v))await load();
+    app.innerHTML=v=="home"?(track(),home()):v=="novels"?(track(),novels()):v=="bookmarks"?bookmarks():v=="series"?await series(+a):v=="read"?await read(+a,+b):AUTH.includes(v)?authBox(v):v=="profile"?profile():nf();
   }catch(e){app.innerHTML=`<div class="empty">Could not load data. Check that the SQL was run in Supabase.<br><small>${esc(e.message||e)}</small></div>`}
   document.querySelectorAll("#nav a").forEach(x=>x.classList.toggle("on",x.dataset.v==v||(v=="series"&&x.dataset.v=="novels")));
   window.scrollTo(0,0);document.title=(v=="series"&&rows.find(x=>x.id==+a)?rows.find(x=>x.id==+a).title+" – ":"")+"Lanternfall";
   foot();admRender();
 }
-function foot(){$("#ft").innerHTML=`© 2026 Lanternfall · ${user?`<a id="lo">Sign out (${esc(user.email)})</a>`:`<a href="#login">Admin</a>`}`}
+function acct(){let e=$("#acct");if(!e){e=document.createElement("span");e.id="acct";$("#th").before(e)}e.innerHTML=user?`<a class="ic" href="#profile">👤 ${isAdmin?"Admin":"Account"}</a>`:`<a class="btn sm" href="#login">Sign in</a>`}
+function foot(){$("#ft").innerHTML="© 2026 Lanternfall";acct()}
 // ---- admin panel (shown below the site only when signed in) ----
 async function admRender(){
-  const el=$("#adm");if(!user){el.innerHTML="";return}
+  const el=$("#adm");if(!user||!isAdmin||location.hash!="#profile"){el.innerHTML="";return}
   const tab=(k,t)=>`<button class="${A.tab==k?"on":""}" data-tab="${k}">${t}</button>`;
   let body="";
   try{
@@ -100,7 +115,14 @@ async function done(msg){A.msg=msg;await load();admRender();if(/^#(home|novels|s
 document.addEventListener("submit",async e=>{
   const f=e.target.dataset.f;if(!f)return;e.preventDefault();const d=new FormData(e.target);
   try{
-    if(f=="login"){const{error}=await sb.auth.signInWithPassword({email:d.get("email"),password:d.get("pw")});if(error){$("#lerr").textContent=error.message;return}location.hash="home"}
+    if(f=="login"||f=="signup"){
+      const c={email:d.get("email").trim(),password:d.get("pw")};
+      const r=f=="login"?await sb.auth.signInWithPassword(c):await sb.auth.signUp(c);
+      if(r.error){$("#lerr").textContent=r.error.message;return}
+      if(r.data.session)location.hash="home";else{$("#lerr").style.color="var(--ac)";$("#lerr").textContent="Check your email to confirm your account, then sign in."}
+    }
+    if(f=="forgot"){const{error}=await sb.auth.resetPasswordForEmail(d.get("email").trim(),{redirectTo:location.origin+location.pathname});$("#lerr").style.color=error?"var(--dg)":"var(--ac)";$("#lerr").textContent=error?error.message:"If this email is registered, a reset link was sent."}
+    if(f=="recover"){const{error}=await sb.auth.updateUser({password:d.get("pw")});if(error){$("#lerr").textContent=error.message;return}location.hash="profile"}
     if(f=="series"){
       let url=d.get("cover_url"),file=d.get("file");
       if(file&&file.size){const p=Date.now()+"-"+file.name.replace(/[^a-z0-9.]+/gi,"_");const up=await sb.storage.from("covers").upload(p,file,{upsert:true});if(up.error)throw up.error;url=sb.storage.from("covers").getPublicUrl(p).data.publicUrl}
@@ -117,7 +139,7 @@ document.addEventListener("submit",async e=>{
 });
 document.addEventListener("click",async e=>{
   const t=e.target.closest("button,a");if(!t)return;
-  if(t.id=="lo"){await sb.auth.signOut();return}
+  if(t.id=="lo"){await sb.auth.signOut();location.hash="home";return}
   if(t.id=="bk"){const id=+t.dataset.id;bm=bm.includes(id)?bm.filter(x=>x!=id):[...bm,id];store.set("bm",bm);t.textContent=bm.includes(id)?"★ Bookmarked":"☆ Bookmark";return}
   if(t.id=="rv"){S.rev=!S.rev;route();return}
   if(t.dataset.fz){pref.fs=Math.min(30,Math.max(14,pref.fs+ +t.dataset.fz));store.set("pref",pref);document.querySelector(".txt").style.fontSize=pref.fs+"px";return}
@@ -139,6 +161,10 @@ $("#q").addEventListener("keydown",e=>{if(e.key=="Enter"){S.q=e.target.value.tri
 $("#th").onclick=()=>{const r=document.documentElement,d=r.dataset.theme||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");r.dataset.theme=d=="dark"?"light":"dark";store.set("theme",r.dataset.theme)};
 {const t=store.get("theme",null);if(t)document.documentElement.dataset.theme=t}
 document.addEventListener("change",e=>{if(e.target.id=="fs"){S.st=e.target.value;route()}if(e.target.id=="fo"){S.sort=e.target.value;route()}});
-sb.auth.onAuthStateChange((ev,s)=>{const was=!!user;user=s?s.user:null;if(was!=!!user){foot();admRender();if(ev=="SIGNED_IN"&&location.hash=="#login")location.hash="home"}});
+async function setUser(u){user=u;isAdmin=false;if(u){try{const{data}=await sb.from("admins").select("user_id").eq("user_id",u.id).maybeSingle();isAdmin=!!data}catch(e){}}}
+sb.auth.onAuthStateChange((ev,s)=>{
+  if(ev=="PASSWORD_RECOVERY"){user=s.user;location.hash="recover";return}
+  setTimeout(async()=>{const was=user&&user.id;await setUser(s?s.user:null);if(was!=(user&&user.id)){foot();admRender();if(ev=="SIGNED_IN"&&/^#(login|signup)/.test(location.hash))location.hash="home"}},0);
+});
 addEventListener("hashchange",route);
-sb.auth.getSession().then(({data})=>{user=data.session?data.session.user:null;route()});
+sb.auth.getSession().then(async({data})=>{await setUser(data.session?data.session.user:null);route()});
