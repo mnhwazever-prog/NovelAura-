@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://novel123a.vercel.app/sitemap.xml

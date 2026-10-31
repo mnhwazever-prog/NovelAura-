@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/series/:slug", "destination": "/api/page?type=series&slug=:slug" },
+    { "source": "/read/:slug/:n", "destination": "/api/page?type=read&slug=:slug&n=:n" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
