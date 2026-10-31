@@ -21,7 +21,7 @@ function home(){
   if(!rows.length)return `<div class="empty">No series yet.${isAdmin?" Open your profile (top right) to add one.":""}</div>`;
   const f=rows[0];
   return `<div class="hero">${cover(f)}<div><h1 style="margin:0 0 6px">${esc(f.title)}</h1><div>${(f.genres||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join("")}<span class="tag">${esc(f.status)}</span></div><p style="color:var(--mu)">${esc((f.description||"").slice(0,300))}</p><a class="btn" href="#series-${f.id}">Read now</a></div></div>
-  <h2>Latest updates<a href="#novels">View all</a></h2><div class="grid">${rows.slice(0,12).map(card).join("")}</div>
+  <h2>Latest updates<a href="#novels">View all</a></h2><div class="grid">${rows.slice(0,12).map(card).join("")}</div><div class="ad" id="ad2"></div>
   <h2>Most viewed</h2><div class="grid">${top.map(card).join("")}</div>
   ${done.length?`<h2>Completed novels</h2><div class="grid">${done.map(card).join("")}</div>`:""}`;
 }
@@ -76,11 +76,19 @@ async function route(){
     app.innerHTML=v=="home"?(track(),home()):v=="novels"?(track(),novels()):v=="bookmarks"?bookmarks():v=="series"?await series(+a):v=="read"?await read(+a,+b):AUTH.includes(v)?authBox(v):v=="profile"?profile():nf();
   }catch(e){app.innerHTML=`<div class="empty">Could not load data. Check that the SQL was run in Supabase.<br><small>${esc(e.message||e)}</small></div>`}
   document.querySelectorAll("#nav a").forEach(x=>x.classList.toggle("on",x.dataset.v==v||(v=="series"&&x.dataset.v=="novels")));
-  window.scrollTo(0,0);document.title=(v=="series"&&rows.find(x=>x.id==+a)?rows.find(x=>x.id==+a).title+" – ":"")+"Lanternfall";
-  foot();admRender();
+  window.scrollTo(0,0);document.title=(v=="series"&&rows.find(x=>x.id==+a)?rows.find(x=>x.id==+a).title+" – ":"")+"Novelfly";
+  foot();admRender();ads(v);
 }
 function acct(){let e=$("#acct");if(!e){e=document.createElement("span");e.id="acct";$("#th").before(e)}e.innerHTML=user?`<a class="ic" href="#profile">👤 ${isAdmin?"Admin":"Account"}</a>`:`<a class="btn sm" href="#login">Sign in</a>`}
-function foot(){$("#ft").innerHTML="© 2026 Lanternfall";acct()}
+const AD1="//gn.upfolddoter.com/rQbZQFbhO8LM/160099",AD2="//kp.delugedkeens.com/sgmxJN9J5JaC/160098",DIRECT="https://xj.leavycranes.com/igP6r2Ai1YavcpTW/160100";
+let adHits=0;
+// ads: only on browsing pages (never while reading, never for the admin), and at most every 3rd page view
+function ads(v){
+  document.querySelectorAll(".ad").forEach(e=>{e.innerHTML=""});
+  if(isAdmin||!["home","novels","series","bookmarks"].includes(v)||adHits++%3)return;
+  [["ad1",AD1],["ad2",AD2]].forEach(([id,src])=>{const box=document.getElementById(id);if(!box)return;const s=document.createElement("script");s.async=true;s.setAttribute("data-cfasync","false");s.src=src;box.appendChild(s)});
+}
+function foot(){$("#ft").innerHTML=`© 2026 Novelfly · <a href="${DIRECT}" target="_blank" rel="sponsored noopener noreferrer">Sponsored link</a>`;acct()}
 // ---- admin panel (shown below the site only when signed in) ----
 async function admRender(){
   const el=$("#adm");if(!user||!isAdmin||location.hash!="#profile"){el.innerHTML="";return}
