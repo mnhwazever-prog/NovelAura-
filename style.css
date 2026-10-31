@@ -56,3 +56,4 @@ footer a{color:var(--ac);cursor:pointer}
 .fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 14px}
 .msg{padding:8px 12px;border-radius:8px;background:var(--bg);margin:8px 0;font-size:14px}
 @media(max-width:600px){#q{width:100%;order:3}}
+.ad{max-width:1100px;margin:18px auto;padding:0 16px;text-align:center;overflow:hidden}.ad:empty{display:none}
